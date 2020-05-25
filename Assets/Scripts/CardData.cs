@@ -1,13 +1,18 @@
 ﻿public class CardData
 {
-    private CardType cardType;
-    public CardType CardType { get => cardType; }
+    public CardType CardType { get; private set; }
 
-    private bool canUse;
+    public bool CanUse { get; private set; }
 
-    public CardData(CardType _type,bool _canUse = true)
+    public int BelongId { get; private set; }//所属玩家ID
+
+    public int CardId { get; private set; }
+
+    public CardData(CardType _type,int _id,int _cardId, bool _canUse = true)
     {
-        cardType = _type;
-        canUse = _canUse;
+        CardType = _type;
+        CanUse = _canUse;
+        CardId = _cardId;
+        BelongId = _id;
     }
 }

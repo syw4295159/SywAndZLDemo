@@ -13,4 +13,6 @@ public class PlayerData
     public List<CardData> CardsList = new List<CardData>();
 
     public int Index;
+
+    public int Id;
 }

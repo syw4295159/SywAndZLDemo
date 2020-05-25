@@ -22,4 +22,7 @@ public enum MsgEnum
     StepOneOver,
     StepTime,
     StepTimeOver,
+
+    //Behavior
+    UseCard,
 }

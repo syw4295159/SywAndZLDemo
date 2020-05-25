@@ -2,6 +2,7 @@
 using System.Collections;
 using System;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class UIMain : MonoBehaviour
 {
@@ -14,6 +15,8 @@ public class UIMain : MonoBehaviour
     public GameObject CardPrefab;
     public GameObject DownGrid;
     public GameObject UpGrid;
+
+    public List<Card> Cards = new List<Card>();
     private void Awake()
     {
         UIMainAnimator = GetComponent<Animator>();
@@ -25,13 +28,18 @@ public class UIMain : MonoBehaviour
     {
         MessageCenter.RegisterMessage((int)MsgEnum.StepOne, OnMsgStepOne);
         MessageCenter.RegisterMessage((int)MsgEnum.StepTime, OnMsgStepTime);
+        MessageCenter<int, CardData>.RegisterMessage((int)MsgEnum.UseCard, OnMsgUseCardView);
     }
     private void OnDisable()
     {
         MessageCenter.UnRegisterMessage((int)MsgEnum.StepOne, OnMsgStepOne);
         MessageCenter.UnRegisterMessage((int)MsgEnum.StepTime, OnMsgStepTime);
+        MessageCenter<int, CardData>.UnRegisterMessage((int)MsgEnum.UseCard, OnMsgUseCardView);
     }
 
+    /// <summary>
+    /// 发牌阶段
+    /// </summary>
     private void OnMsgStepOne()
     {
         StepOne.gameObject.SetActive(true);
@@ -41,22 +49,31 @@ public class UIMain : MonoBehaviour
     }
     private void SpawnCard(CellType cellType)
     {
-        GamePlayer DownPlayer = GameLogic.Instance.PlayerList.Find(x => x.Data.CellType == cellType);
-        if (DownPlayer == null) return;
-        var playerCardDatas = DownPlayer.Data.CardsList;
+        GamePlayer gamePlayer = GameLogic.Instance.PlayerList.Find(x => x.Data.CellType == cellType);
+        if (gamePlayer == null) return;
+        var playerCardDatas = gamePlayer.Data.CardsList;
         for (int i = 0; i < playerCardDatas.Count; i++)
         {
             var card = Instantiate(CardPrefab, cellType == CellType.Down ? DownGrid.transform : UpGrid.transform);
-            var cardData = card.GetComponent<Card>() ?? card.AddComponent<Card>();
-            cardData.SetData(playerCardDatas[i]);
+            var cardAgent = card.GetComponent<Card>() ?? card.AddComponent<Card>();
+            cardAgent.SetData(playerCardDatas[i]);
+            if(playerCardDatas[i].BelongId == 0)
+                Cards.Add(cardAgent);   
         }
-    }    
+    }
+    /// <summary>
+    /// UIMain_StepOne动画片段结尾事件绑定
+    /// </summary>
     private void OnMsgOneOver()
-    {
+    {        
         MessageCenter.SendMessage((int)MsgEnum.StepOneOver);        
     }
+    /// <summary>
+    /// 决策阶段，15秒
+    /// </summary>
     private void OnMsgStepTime()
     {
+        StepOne.gameObject.SetActive(false);
         GameLogic.Instance.GameStartAction += TimeRunning;
         StepTime.gameObject.SetActive(true);
         UIMainAnimator.Play("UIMain_StepTime");
@@ -76,10 +93,27 @@ public class UIMain : MonoBehaviour
     {
         GameLogic.Instance.GameStartAction -= TimeRunning;
         StepTime.gameObject.SetActive(false);
+        StepOver.gameObject.SetActive(true);
+        UIMainAnimator.Play("UIMain_StepOver");
         MessageCenter.SendMessage((int)MsgEnum.StepTimeOver);
     }
     private void OnMsgStepOver()
     {
 
+    }
+
+    private void OnMsgUseCardView(int playerId,CardData cardData)
+    {
+        for (int i = 0; i < Cards.Count; i++)
+        {
+            if (Cards[i].CardId != cardData.CardId)
+            {
+                Cards[i].IsActive = false;
+            }
+            else
+            {
+                Debug.LogFormat("现在操作{0}", Cards[i].CardId);
+            }
+        }
     }
 }

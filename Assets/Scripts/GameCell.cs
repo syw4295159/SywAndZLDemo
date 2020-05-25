@@ -1,10 +1,15 @@
 ﻿using UnityEngine;
 using System.Collections;
+using UnityEngine.UI;
+using System;
 
 public class GameCell : MonoBehaviour
 {
     private float width = 50;
     private float height = 50;
+
+    public int row;
+    public int column;
 
     [SerializeField]
     private int index;
@@ -18,6 +23,11 @@ public class GameCell : MonoBehaviour
     {
         index = _index;
         CellType = _type;
+    }
+
+    internal void SetClickState(bool state)
+    {
+        GetComponent<Button>().interactable = state;
     }
 }
 
