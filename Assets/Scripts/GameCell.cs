@@ -29,5 +29,11 @@ public class GameCell : MonoBehaviour
     {
         GetComponent<Button>().interactable = state;
     }
+
+    public void OnClick()
+    {
+        MessageCenter<int, int, CellType>.SendMessage((int)MsgEnum.ClickCell, 0, index, cellType);
+        Debug.LogFormat("玩家{0},点击了{1},类型{2}", 0, index, cellType);
+    }
 }
 

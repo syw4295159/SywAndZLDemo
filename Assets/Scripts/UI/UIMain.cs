@@ -29,12 +29,14 @@ public class UIMain : MonoBehaviour
         MessageCenter.RegisterMessage((int)MsgEnum.StepOne, OnMsgStepOne);
         MessageCenter.RegisterMessage((int)MsgEnum.StepTime, OnMsgStepTime);
         MessageCenter<int, CardData>.RegisterMessage((int)MsgEnum.UseCard, OnMsgUseCardView);
+        MessageCenter<int, CardData>.RegisterMessage((int)MsgEnum.BehaviorLimit, OnMsgBehaviorLimit);
     }
     private void OnDisable()
     {
         MessageCenter.UnRegisterMessage((int)MsgEnum.StepOne, OnMsgStepOne);
         MessageCenter.UnRegisterMessage((int)MsgEnum.StepTime, OnMsgStepTime);
         MessageCenter<int, CardData>.UnRegisterMessage((int)MsgEnum.UseCard, OnMsgUseCardView);
+        MessageCenter<int, CardData>.UnRegisterMessage((int)MsgEnum.BehaviorLimit, OnMsgBehaviorLimit);
     }
 
     /// <summary>
@@ -96,10 +98,11 @@ public class UIMain : MonoBehaviour
         StepOver.gameObject.SetActive(true);
         UIMainAnimator.Play("UIMain_StepOver");
         MessageCenter.SendMessage((int)MsgEnum.StepTimeOver);
+        Invoke("OnMsgStepOver", 1);
     }
     private void OnMsgStepOver()
     {
-
+        StepOver.gameObject.SetActive(false);
     }
 
     private void OnMsgUseCardView(int playerId,CardData cardData)
@@ -108,7 +111,7 @@ public class UIMain : MonoBehaviour
         {
             if (Cards[i].CardId != cardData.CardId)
             {
-                Cards[i].IsActive = false;
+                //Cards[i].IsActive = false;
             }
             else
             {
@@ -116,4 +119,25 @@ public class UIMain : MonoBehaviour
             }
         }
     }
+
+    private void OnMsgBehaviorLimit(int limit,CardData data)
+    {
+        if (limit <= 0)
+        {
+            for (int i = 0; i < Cards.Count; i++)
+            {
+                Cards[i].SetClickState(false);
+            }
+        }
+        else
+        {
+            var card = Cards.Find(x => x.Data == data);
+            if(card != null)
+            {
+                card.SetClickState(false);
+            }
+        }
+    }
+
+
 }

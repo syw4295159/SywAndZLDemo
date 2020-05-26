@@ -25,4 +25,6 @@ public enum MsgEnum
 
     //Behavior
     UseCard,
+    ClickCell,
+    BehaviorLimit,//当前回合操作上限
 }
