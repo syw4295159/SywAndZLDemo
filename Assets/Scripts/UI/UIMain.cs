@@ -39,6 +39,7 @@ public class UIMain : MonoBehaviour
         MessageCenter<int, CardData>.UnRegisterMessage((int)MsgEnum.BehaviorLimit, OnMsgBehaviorLimit);
     }
 
+
     /// <summary>
     /// 发牌阶段
     /// </summary>
@@ -48,6 +49,7 @@ public class UIMain : MonoBehaviour
         UIMainAnimator.Play("UIMain_StepOne");
         SpawnCard(CellType.Up);
         SpawnCard(CellType.Down);
+        GameLogic.Instance.RefreshCardAction += OnMsgRefreshCard;
     }
     private void SpawnCard(CellType cellType)
     {
@@ -106,9 +108,9 @@ public class UIMain : MonoBehaviour
             StepTime.gameObject.SetActive(false);
             StepOver.gameObject.SetActive(true);
             UIMainAnimator.Play("UIMain_StepOver");
-            Invoke("OnMsgStepOver", 1);
-            MessageCenter.SendMessage((int)MsgEnum.StepOneOver);
-            GameLogic.Instance.GameStartAction -= TimeRunning;            
+            //Invoke("OnMsgStepOver", 1);
+            //MessageCenter.SendMessage((int)MsgEnum.StepOneOver);
+            //GameLogic.Instance.GameStartAction -= TimeRunning;            
         }
         //Debug.LogFormat("time:{0}", timeText.text);
     }
@@ -121,9 +123,11 @@ public class UIMain : MonoBehaviour
     //    MessageCenter.SendMessage((int)MsgEnum.StepTimeOver);
     //    Invoke("OnMsgStepOver", 1);
     //}
-    private void OnMsgStepOver()
+    public void OnMsgStepOver()
     {
         StepOver.gameObject.SetActive(false);
+        MessageCenter.SendMessage((int)MsgEnum.StepOneOver);
+        GameLogic.Instance.GameStartAction -= TimeRunning;
     }
 
     private void OnMsgUseCardView(int playerId,CardData cardData)
@@ -159,6 +163,18 @@ public class UIMain : MonoBehaviour
             }
         }
     }
-
-
+    
+    private void OnMsgRefreshCard(List<CardData> cardDatas)
+    {
+        for (int i = 0; i < Cards.Count; i++)
+        {
+            for (int j = 0; j < cardDatas.Count; j++)
+            {
+                if(Cards[i].Data.CardId == cardDatas[j].CardId)
+                {
+                    Cards[i].SetData(cardDatas[j]);
+                }
+            }
+        }
+    }
 }

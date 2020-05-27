@@ -29,9 +29,11 @@ public class GameLogic : MonoBehaviour
     private float timer;//决策计时器
     public float overTime = 15;
     private bool isGameDesign = false;
+    private bool IsGameOver = false;
     public Action<float> GameStartAction;
     private CardType currentCardType;//当前正在使用的牌类型
     private CardData currentCardData;
+    public Action<List<CardData>> RefreshCardAction;
     [Space]
     [Header("Behavior")]     
     public Dictionary<int, List<PlayerControlBehavior>> BehaviorDic = new Dictionary<int, List<PlayerControlBehavior>>();
@@ -123,14 +125,21 @@ public class GameLogic : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 生成新的全部卡牌
+    /// </summary>
+    /// <param name="data"></param>
     private void SpawnCard(PlayerData data)
     {
         var count = data.CellType == CellType.Down ? DownCellColumn * DownCellRow : UpCellColumn * UpCellRow;
         for (int i = 0; i < count; i++)
         {
-            CardData card = new CardData(i < count / 2 ? CardType.Move : CardType.Attack, data.Id, i, true);
+            int value = UnityEngine.Random.Range(0, 2);
+            CardData card = new CardData((CardType)value, data.Id, i, true);
             data.CardsList.Add(card);
         }
+        if (RefreshCardAction != null)
+            RefreshCardAction(data.CardsList);
     }
 
     /// <summary>
@@ -161,6 +170,13 @@ public class GameLogic : MonoBehaviour
     {
         Debug.Log("倒计时结束开始行为计算...");
         PlayBehavior(behaviorIndex);
+        var result = CheckPlayerDead();
+        if (result)
+        {
+            Debug.LogFormat("Game Over");
+            IsGameOver = true;
+            return;
+        }
         behaviorIndex++;
         Debug.Log("行为计算完毕...");
     }
@@ -182,7 +198,7 @@ public class GameLogic : MonoBehaviour
             var beList = BehaviorDic[index];//第index回合的所有行为 
             PlaySingleBehavior(beList, 0);
             PlaySingleBehavior(beList, 1);
-        }        
+        }
     }
     private void PlaySingleBehavior(List<PlayerControlBehavior> playerControlBehaviors,int controlIndex)
     {
@@ -278,10 +294,26 @@ public class GameLogic : MonoBehaviour
             if (totalAttackArea[i].CellType == player.Data.CellType && totalAttackArea[i].Index == player.Data.Index)
             {
                 player.Data.Hp--;
-                Debug.LogFormat("玩家{0} 受伤", player.Data.Id);
+                Debug.LogFormat("玩家{0} 受伤", player.Data.Id);                
                 return;
             }
         }
+    }
+
+    private bool CheckPlayerDead()
+    {
+        int player0Hp = playerlist[0].Data.Hp;
+        int player1Hp = playerlist[1].Data.Hp;
+        Debug.LogFormat("玩家{0}hp = {1},玩家{2}hp = {3}", playerlist[0].Data.Id, player0Hp, playerlist[1].Data.Id, player1Hp);
+        if(player0Hp == player1Hp && player0Hp == 0)
+        {
+            return true;
+        }
+        if (player0Hp == 0 || player1Hp == 0)
+        {
+            return true;
+        }
+        return false;
     }
 
     #region Card
@@ -518,23 +550,26 @@ public class GameLogic : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (isGameDesign)
+        if(!IsGameOver)
         {
-            timer += Time.deltaTime;
-            if (timer >= overTime)
+            if (isGameDesign)
+            {
+                timer += Time.deltaTime;
+                if (timer >= overTime)
+                {
+                    timer = 0;
+                    OnMsgStepTimeOver();
+                    isGameDesign = false;
+                }
+                if (GameStartAction != null)
+                {
+                    GameStartAction(timer);
+                }
+            }
+            else
             {
                 timer = 0;
-                OnMsgStepTimeOver();
-                isGameDesign = false;
             }
-            if (GameStartAction != null)
-            {
-                GameStartAction(timer);
-            }
-        }
-        else
-        {
-            timer = 0;
         }
     }
 }

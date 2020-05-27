@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 public class PlayerData
 {
-    public int Hp;
+    public int Hp = 3;
 
     public CellType CellType;
 
