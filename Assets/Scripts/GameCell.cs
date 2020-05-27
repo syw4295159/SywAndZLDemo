@@ -19,14 +19,18 @@ public class GameCell : MonoBehaviour
     private CellType cellType;
     public CellType CellType { get => cellType; set => cellType = value; }
 
+    public bool CanClick { get; private set; }
+
     public void Init(int _index,CellType _type)
     {
         index = _index;
         CellType = _type;
+        GetComponentInChildren<Text>().text = (_type == CellType.Up ? "↑" : "↓") + index.ToString();
     }
 
     internal void SetClickState(bool state)
     {
+        CanClick = state;
         GetComponent<Button>().interactable = state;
     }
 

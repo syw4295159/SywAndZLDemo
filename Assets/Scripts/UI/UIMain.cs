@@ -79,27 +79,48 @@ public class UIMain : MonoBehaviour
         GameLogic.Instance.GameStartAction += TimeRunning;
         StepTime.gameObject.SetActive(true);
         UIMainAnimator.Play("UIMain_StepTime");
+        CardClickStateSetting();
     }
+
+    private void CardClickStateSetting()
+    {
+        for (int i = 0; i < Cards.Count; i++)
+        {
+            Cards[i].GetComponent<Button>().interactable = Cards[i].Data.CanUse;
+        }
+    }
+
     private void TimeRunning(float timer)
     {
-        if (timer >= 15)
-        {
-            OnMsgStepTimeOver();
-        }
-        else
-        {
+        //if (timer >= 15)
+        //{
+        //    OnMsgStepTimeOver();
+        //}
+        //else
+        //{
             timeText.text = timer >= 0 ? (Convert.ToInt32(15 - timer)).ToString() : "0";
-        }        
+        //}        
+
+        if (timer == 0)
+        {
+            StepTime.gameObject.SetActive(false);
+            StepOver.gameObject.SetActive(true);
+            UIMainAnimator.Play("UIMain_StepOver");
+            Invoke("OnMsgStepOver", 1);
+            MessageCenter.SendMessage((int)MsgEnum.StepOneOver);
+            GameLogic.Instance.GameStartAction -= TimeRunning;            
+        }
+        //Debug.LogFormat("time:{0}", timeText.text);
     }
-    private void OnMsgStepTimeOver()
-    {
-        GameLogic.Instance.GameStartAction -= TimeRunning;
-        StepTime.gameObject.SetActive(false);
-        StepOver.gameObject.SetActive(true);
-        UIMainAnimator.Play("UIMain_StepOver");
-        MessageCenter.SendMessage((int)MsgEnum.StepTimeOver);
-        Invoke("OnMsgStepOver", 1);
-    }
+    //private void OnMsgStepTimeOver()
+    //{
+    //    GameLogic.Instance.GameStartAction -= TimeRunning;
+    //    StepTime.gameObject.SetActive(false);
+    //    StepOver.gameObject.SetActive(true);
+    //    UIMainAnimator.Play("UIMain_StepOver");
+    //    MessageCenter.SendMessage((int)MsgEnum.StepTimeOver);
+    //    Invoke("OnMsgStepOver", 1);
+    //}
     private void OnMsgStepOver()
     {
         StepOver.gameObject.SetActive(false);

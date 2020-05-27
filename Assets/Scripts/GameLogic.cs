@@ -44,7 +44,7 @@ public class GameLogic : MonoBehaviour
     private void OnEnable()
     {
         MessageCenter.RegisterMessage((int)MsgEnum.StepOneOver, OnMsgStepOneOver);
-        MessageCenter.RegisterMessage((int)MsgEnum.StepTimeOver, OnMsgStepTimeOver);
+        //MessageCenter.RegisterMessage((int)MsgEnum.StepTimeOver, OnMsgStepTimeOver);
         MessageCenter<int, CardData>.RegisterMessage((int)MsgEnum.UseCard, OnMsgUseCard);
         MessageCenter<int, int, CellType>.RegisterMessage((int)MsgEnum.ClickCell, OnMsgClickCell);
     }
@@ -64,7 +64,7 @@ public class GameLogic : MonoBehaviour
     private void OnDisable()
     {
         MessageCenter.UnRegisterMessage((int)MsgEnum.StepOneOver, OnMsgStepOneOver);
-        MessageCenter.UnRegisterMessage((int)MsgEnum.StepTimeOver, OnMsgStepTimeOver);
+        //MessageCenter.UnRegisterMessage((int)MsgEnum.StepTimeOver, OnMsgStepTimeOver);
         MessageCenter<int, CardData>.UnRegisterMessage((int)MsgEnum.UseCard, OnMsgUseCard);
         MessageCenter<int, int, CellType>.UnRegisterMessage((int)MsgEnum.ClickCell, OnMsgClickCell);
     }
@@ -101,76 +101,8 @@ public class GameLogic : MonoBehaviour
         SpawnPlayer(0, 3, PlayerType.Player, CellType.Down);
         SpawnPlayer(1, 3, PlayerType.Enemy, CellType.Up);
     }
-    /// <summary>
-    /// 发牌结束
-    /// </summary>
-    private void OnMsgStepOneOver()
-    {
-        Debug.Log("StepOneOver");
-        tempAttackArea.Clear();
-        MessageCenter.SendMessage((int)MsgEnum.StepTime);
-        isGameDesign = true;
-        
-    }
 
-    private void OnMsgStepTimeOver()
-    {
-        Debug.Log("倒计时结束");
-        BehaviorActoring(behaviorIndex);
-        behaviorIndex++;
-
-    }
-
-    /// <summary>
-    /// 播放所有行为
-    /// </summary>
-    private void BehaviorActoring(int index)
-    {
-        if (!BehaviorDic.ContainsKey(index))
-        {
-            Debug.LogFormat("未发现第{0}回合里的任何操作,正在规划中...", index);
-
-        }
-        else
-        {
-            var beList = BehaviorDic[index];//第index回合的所有行为 
-            BehaviorOneStepAction(beList, 0);
-            BehaviorOneStepAction(beList, 1);
-            //第0步的所有玩家行为
-            //第1步的所有玩家行为
-        }
-    }
-    private void BehaviorOneStepAction(List<PlayerControlBehavior> playerControlBehaviors,int controlIndex)
-    {
-        var list = playerControlBehaviors.FindAll(x => x.ControlIndex == controlIndex);
-        if (list.Count < 2)
-        {
-            var needFuncPlayer = playerlist.Find(x => x.Data.Id != list[0].BehaviorPlayerId);
-            if(needFuncPlayer != null)
-            {
-                int id = needFuncPlayer.Data.Id;
-                var cardData = RandomUseCard(needFuncPlayer);
-                OnMsgUseCard(id, cardData);
-                List<GameCell> cells = new List<GameCell>();
-                switch (cardData.CardType)
-                {
-                    case CardType.Move:
-                        cells = MoveBehavior(id, cardData);                        
-                        break;
-                    case CardType.Attack:
-                        cells = AttackBehavior(id, cardData);
-                        break;
-                    default:
-                        break;
-                }
-                var cell = RandomClickGameCell(cells);
-                OnMsgClickCell(id, cell.Index, cell.CellType);
-                Debug.LogFormat("玩家{0} 执行了类型为{1}，触发格子{2} 类型为{3}", id, cardData.CardType, cell.Index, cell.CellType);
-            }             
-        }
-    }
-
-    private void SpawnPlayer(int id,int index,PlayerType type,CellType cellType)
+    private void SpawnPlayer(int id, int index, PlayerType type, CellType cellType)
     {
         PlayerData data = new PlayerData();
         data.Hp = 3;
@@ -179,8 +111,8 @@ public class GameLogic : MonoBehaviour
         data.Index = index;
         data.Id = id;
         data.BehaviorIndex = 2;
-        SpawnCard(data);        
-        
+        SpawnCard(data);
+
         var cell = gameCells.Find(x => x.Index == index && x.CellType == cellType);
         if (cell != null)
         {
@@ -188,7 +120,7 @@ public class GameLogic : MonoBehaviour
             var player = playerObj.GetComponent<GamePlayer>();
             player.SetGamePlayerData(data);
             playerlist.Add(player);
-        }            
+        }
     }
 
     private void SpawnCard(PlayerData data)
@@ -198,7 +130,158 @@ public class GameLogic : MonoBehaviour
         {
             CardData card = new CardData(i < count / 2 ? CardType.Move : CardType.Attack, data.Id, i, true);
             data.CardsList.Add(card);
+        }
+    }
+
+    /// <summary>
+    /// 发牌结束
+    /// </summary>
+    private void OnMsgStepOneOver()
+    {
+        Debug.LogFormat("第{0}回合开始决策倒计时...", behaviorIndex);
+        tempAttackArea.Clear();
+        if (behaviorIndex == 0)
+        {                       
+            MessageCenter.SendMessage((int)MsgEnum.StepTime);
+            isGameDesign = true;
+        }
+        else
+        {
+            for (int i = 0; i < playerlist.Count; i++)
+            {
+                playerlist[i].Data.BehaviorIndex = 2;
+                CheckPlayerCardList(playerlist[i]);
+            }            
+            MessageCenter.SendMessage((int)MsgEnum.StepTime);
+            isGameDesign = true;
+        }
+    }
+
+    private void OnMsgStepTimeOver()
+    {
+        Debug.Log("倒计时结束开始行为计算...");
+        PlayBehavior(behaviorIndex);
+        behaviorIndex++;
+        Debug.Log("行为计算完毕...");
+    }
+
+    /// <summary>
+    /// 播放所有行为
+    /// </summary>
+    private void PlayBehavior(int index)
+    {
+        if (!BehaviorDic.ContainsKey(index))
+        {
+            Debug.LogFormat("未发现第{0}回合里的任何操作,正在规划中...", index);
+            var totalBeList = new List<PlayerControlBehavior>();
+            PlaySingleBehavior(totalBeList, 0);
+            PlaySingleBehavior(totalBeList, 1);
+        }
+        else
+        {
+            var beList = BehaviorDic[index];//第index回合的所有行为 
+            PlaySingleBehavior(beList, 0);
+            PlaySingleBehavior(beList, 1);
         }        
+    }
+    private void PlaySingleBehavior(List<PlayerControlBehavior> playerControlBehaviors,int controlIndex)
+    {
+        var list = playerControlBehaviors.FindAll(x => x.ControlIndex == controlIndex);
+        if (list.Count < 2 && list.Count > 0)
+        {
+            var needFuncPlayer = playerlist.Find(x => x.Data.Id != list[0].BehaviorPlayerId);
+            AutoFillBehavior(needFuncPlayer);
+        }
+        else if(list.Count == 0)
+        {
+            for (int i = 0; i < playerlist.Count; i++)
+            {
+                var needFuncPlayer = playerlist[i];
+                AutoFillBehavior(needFuncPlayer);
+            }
+        }
+        var list0 = BehaviorDic[behaviorIndex].FindAll(x => x.ControlIndex == controlIndex);
+        RealizationBehavior(list0[0], list0[1]);
+    }
+    private void AutoFillBehavior(GamePlayer needFuncPlayer)
+    {
+        if (needFuncPlayer != null)
+        {
+            int id = needFuncPlayer.Data.Id;
+            var cardData = RandomUseCard(needFuncPlayer);
+            OnMsgUseCard(id, cardData);
+            List<GameCell> cells = gameCells.FindAll(x => x.CanClick == true);
+            //List<GameCell> cells = new List<GameCell>();
+            //switch (cardData.CardType)
+            //{
+            //    case CardType.Move:
+            //        cells = MoveBehavior(id, cardData);
+            //        break;
+            //    case CardType.Attack:
+            //        cells = AttackBehavior(id, cardData);
+            //        break;
+            //    default:
+            //        break;
+            //}
+            var cell = RandomClickGameCell(cells);
+            OnMsgClickCell(id, cell.Index, cell.CellType);
+            Debug.LogFormat("规划: 玩家{0} 执行了类型为{1}，触发格子{2} 类型为{3}", id, cardData.CardType, cell.Index, cell.CellType);
+
+        }
+    }
+    /// <summary>
+    /// 同一回合内的行为判断
+    /// </summary>
+    /// <param name="Be0"></param>
+    /// <param name="Be1"></param>
+    private void RealizationBehavior(PlayerControlBehavior Be0, PlayerControlBehavior Be1)
+    {
+        var player0 = playerlist.Find(x => x.Data.Id == Be0.BehaviorPlayerId);
+        var player1 = playerlist.Find(x => x.Data.Id == Be1.BehaviorPlayerId);
+        RealizationMove(Be0,player0);
+        RealizationMove(Be1,player1);
+
+        List<GameCell> totalAttackArea = new List<GameCell>();
+        totalAttackArea.AddRange(Be0.AttackAreas);
+        totalAttackArea.AddRange(Be1.AttackAreas);
+        for (int i = 0; i < totalAttackArea.Count; i++)
+        {
+            Debug.LogFormat("可以攻击的格子有{0}{1}", totalAttackArea[i].CellType, totalAttackArea[i].Index);
+        }
+        RealizationAttack(totalAttackArea, player0);
+        RealizationAttack(totalAttackArea, player1);
+        tempAttackArea.Clear();
+    }
+
+    private void RealizationMove(PlayerControlBehavior be,GamePlayer player)
+    {
+        if(be.CardType == CardType.Move)
+        {
+            for (int i = 0; i < gameCells.Count; i++)
+            {
+                if (gameCells[i].CellType == be.CellType && gameCells[i].Index == be.NextIndex)
+                {
+                    Debug.LogFormat("玩家{0}从{1}{2} 移动到 {3}{4}", player.Data.Id, player.Data.CellType, player.Data.Index, player.Data.CellType, gameCells[i].Index);
+                    player.transform.SetParent(gameCells[i].transform);
+                    player.GetComponent<RectTransform>().anchoredPosition = Vector2.zero;
+                    player.Data.Index = gameCells[i].Index;
+                    return;
+                }                    
+            }
+        }
+    }
+
+    private void RealizationAttack(List<GameCell> totalAttackArea, GamePlayer player)
+    {
+        for (int i = 0; i < totalAttackArea.Count; i++)
+        {
+            if (totalAttackArea[i].CellType == player.Data.CellType && totalAttackArea[i].Index == player.Data.Index)
+            {
+                player.Data.Hp--;
+                Debug.LogFormat("玩家{0} 受伤", player.Data.Id);
+                return;
+            }
+        }
     }
 
     #region Card
@@ -259,7 +342,7 @@ public class GameLogic : MonoBehaviour
             }
             int column = player.Data.CellType == CellType.Down ? DownCellColumn : UpCellColumn;
             int right = player.Data.Index + column;
-            if (right <= cells.Count)
+            if (right < cells.Count)
             {
                 cells[right].SetClickState(true);
                 clickCells.Add(cells[right]);
@@ -278,12 +361,15 @@ public class GameLogic : MonoBehaviour
                 clickCells.Add(cells[up]);
             }            
             int down = player.Data.Index + 1;
-            bool downSu = cells[down].row == cells[player.Data.Index].row;
-            if (down <= cells.Count && downSu)
+            if(down < cells.Count)
             {
-                cells[down].SetClickState(true);
-                clickCells.Add(cells[down]);
-            }
+                bool downSu = cells[down].row == cells[player.Data.Index].row;
+                if (down <= cells.Count && downSu)
+                {
+                    cells[down].SetClickState(true);
+                    clickCells.Add(cells[down]);
+                }
+            }            
             currentCardData = data;
         }
         return clickCells;
@@ -305,7 +391,7 @@ public class GameLogic : MonoBehaviour
         }
         if (player != null)
         {
-            tempAttackArea.Clear();
+            //tempAttackArea.Clear();
             int up = index - 1;
             var playerCell = gameCells.Find(x => x.Index == index && x.CellType == player.Data.CellType);
             int row = playerCell.row;
@@ -336,6 +422,23 @@ public class GameLogic : MonoBehaviour
         }
         return tempAttackArea;
     }
+
+    /// <summary>
+    /// 检测卡组是否需要刷新配给
+    /// </summary>
+    /// <param name="player"></param>
+    /// <returns></returns>
+    private bool CheckPlayerCardList(GamePlayer player)
+    {
+        var cardList = player.Data.CardsList.FindAll(x => x.CanUse);
+        if(cardList == null || cardList.Count <= 0)
+        {
+            Debug.LogFormat("检测卡组...player{0}分配卡牌", player.Data.Id);
+            SpawnCard(player.Data);
+            return true;
+        }
+        return false;
+    }
     #endregion
 
     #region Cell
@@ -357,6 +460,7 @@ public class GameLogic : MonoBehaviour
                 be.CellType = cellType;
                 be.DefaultIndex = player.Data.Index;
                 be.NextIndex = index;
+                be.AttackAreas = new List<GameCell>();
                 be.ControlIndex = 2 - player.Data.BehaviorIndex;
                 break;
             case CardType.Attack:
@@ -364,7 +468,7 @@ public class GameLogic : MonoBehaviour
                 be.CardType = CardType.Attack;
                 be.CellType = cellType;
                 be.DefaultIndex = player.Data.Index;
-                be.NextIndex = index;
+                be.NextIndex = player.Data.Index;
                 be.AttackAreas = tempAttackArea;
                 be.ControlIndex = 2 - player.Data.BehaviorIndex;
                 break;
@@ -400,12 +504,14 @@ public class GameLogic : MonoBehaviour
     {
         var cardList = player.Data.CardsList.FindAll(x => x.CanUse == true);
         int useCardIndex = UnityEngine.Random.Range(0, cardList.Count);
+        Debug.LogFormat("托管....玩家{0}选取卡牌下标{1},count = {2}", player.Data.Index, useCardIndex, cardList.Count);
         return cardList[useCardIndex];
     }
 
     private GameCell RandomClickGameCell(List<GameCell> cells)
     {
         var index = UnityEngine.Random.Range(0, cells.Count);
+        Debug.LogFormat("托管..选取格子下标{0}", index);
         return cells[index];
     }
     #endregion
@@ -415,20 +521,20 @@ public class GameLogic : MonoBehaviour
         if (isGameDesign)
         {
             timer += Time.deltaTime;
-            if (GameStartAction != null)
-            {
-                GameStartAction(timer);
-            }
             if (timer >= overTime)
             {
                 timer = 0;
+                OnMsgStepTimeOver();
                 isGameDesign = false;
+            }
+            if (GameStartAction != null)
+            {
+                GameStartAction(timer);
             }
         }
         else
         {
             timer = 0;
         }
-
     }
 }
